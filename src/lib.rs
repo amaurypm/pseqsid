@@ -3,6 +3,10 @@
 use std::collections::HashSet;
 use colored::Colorize;
 use clap::ArgEnum;
+use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::fmt;
 mod data;
 use data::StdAAnGap;
 
@@ -19,6 +23,7 @@ impl FastaSeq {
     pub fn new(identifier: String, description: String, data: String) -> FastaSeq {
         assert!(identifier.len() > 0);
         assert!(data.len() > 0);
+
         FastaSeq {
             identifier,
             description,
@@ -46,8 +51,10 @@ impl FastaSeq {
 
 }
 
-fn is_seq_ok(sequence: &str, std_aa_set: &HashSet<char>) -> bool {
+fn is_seq_ok(sequence: &str) -> bool {
     let sequence_set : HashSet<char> = HashSet::from_iter(sequence.chars());
+    let std_aa_set = StdAAnGap::create();
+
     sequence_set.is_subset(&std_aa_set) && sequence_set.len() > 0
 }
 
@@ -64,7 +71,7 @@ pub enum SequenceLength {
 /// Sequence comparison is done here.
 struct SeqPair<'a>{
     first_index: usize, // Index of the first sequence, as it is in a MultipleSequenceAlignment instance.
-    second_index: usize, // Index of the second sequence. first_index < second_index, always.
+    second_index: usize, // Index of the second sequence. first_index > second_index, always.
     first_sequence: &'a FastaSeq,
     second_sequence: &'a FastaSeq,
 }
@@ -72,7 +79,7 @@ struct SeqPair<'a>{
 impl<'a> SeqPair<'a> {
     /// Creates and initialize a SeqPair instance.
     pub fn new(first_index: usize, second_index: usize, first_sequence: &'a FastaSeq, second_sequence: &'a FastaSeq) -> SeqPair<'a> {
-        assert!(first_index < second_index);
+        assert!(first_index > second_index);
 
         SeqPair {
             first_index,
@@ -82,7 +89,7 @@ impl<'a> SeqPair<'a> {
         }
     }
 
-    pub fn identity(&mut self, length_mode: SequenceLength) -> f64 {
+    pub fn identity(&self, length_mode: SequenceLength) -> f64 {
         let sequence_length = self.sequence_length(length_mode);
         assert!(self.first_sequence.whole_len() == self.second_sequence.whole_len());
         let mut identity_count: u32= 0;
@@ -119,11 +126,8 @@ impl<'a> SeqPair<'a> {
                 } else {
                     self.second_sequence.len() as f64
                 }
-            }
-            
+            }            
         }
-
-
     }
     
 }
@@ -132,7 +136,118 @@ struct MultipleSequenceAlignment {
     sequences: Vec<FastaSeq>,
 }
 
+impl MultipleSequenceAlignment {
+    pub fn from_file(filepath: &str) -> Result<MultipleSequenceAlignment, Box<dyn Error>> {
+        let file = File::open(filepath)?;
+        let reader = BufReader::new(file);
+        let mut seq_vec: Vec<FastaSeq> = Vec::new();
+        let mut identifier = String::new();
+        let mut description = String::new();
+        let mut data = String::new();
+        let mut open_seq = false;
+        let mut some_seq = false;  
 
+        for line in reader.lines() {
+            let line_str = line?;
+
+            if line_str.trim().starts_with('>') {
+                if !some_seq {
+                    some_seq = true;
+                }
+
+                if open_seq {
+                    eprintln!("{} Ignoring line {}", "WARN".yellow().bold(), line_str.italic());
+                    continue;
+                } else {
+                    if data.len() == 0 {
+                        eprintln!("{} Sequence {} is empty. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
+                        continue;
+                    }
+
+                    if !is_seq_ok(&data) {
+                        eprintln!("{} Sequence {} contains non-standard amino acids. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
+                        continue;
+                    }
+
+                    seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
+
+                }
+                                
+                description = String::from(line_str.trim_start_matches('>'));
+                identifier = match description.split_whitespace().next() {
+                    Some(id) => String::from(id),
+                    None => {
+                        eprintln!("{} Sequence with no identifier detected. Ignoring line.", "WARN".yellow().bold());
+                        continue;
+                    },
+                };
+                open_seq = true;
+            } else {
+                    if !some_seq {
+                        eprintln!("{} Ignoring line {}", "WARN".yellow().bold(), line_str.italic());
+                        continue;
+                    } else {
+                        data += &line_str.trim();
+                        open_seq = false;
+                    }
+                }
+        }
+
+        if data.len() == 0 {
+            eprintln!("{} Sequence {} is empty. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
+        } else if !is_seq_ok(&data) {
+            eprintln!("{} Sequence {} contains non-standard amino acids. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
+        } else {
+            seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
+        }
+        
+        Ok(MultipleSequenceAlignment {
+            sequences: seq_vec,
+        })
+
+    }
+
+    pub fn get_seq_pairs(&self) -> Vec<SeqPair> {
+        // At least two sequences are required.
+        // This most be enforced at creation time.
+        assert!(self.sequences.len() > 1);
+        let mut seq_pair_vec: Vec<SeqPair> = Vec::new();
+        for i in 0..self.sequences.len() {
+            for j in 0..i {
+                seq_pair_vec.push(SeqPair::new(i, j, &self.sequences[i], &self.sequences[j]));
+            }
+        }
+        seq_pair_vec
+    }
+
+    pub fn len(&self) -> usize {
+        self.sequences.len()
+    }
+
+}
+
+#[derive(Debug)]
+struct MSAError {
+    details: String
+}
+
+impl MSAError {
+    fn new(msg: &str) -> MSAError {
+        MSAError{details: msg.to_string()}
+    }
+}
+
+impl fmt::Display for MSAError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"{}",self.details)
+    }
+}
+
+impl Error for MSAError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
 
 
 #[cfg(test)]
