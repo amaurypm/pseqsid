@@ -9,6 +9,7 @@ use std::io::{BufRead, BufReader};
 use std::fmt;
 mod data;
 use data::StdAAnGap;
+use rayon::prelude::*;
 
 struct FastaSeq {
     identifier: String,
@@ -66,6 +67,15 @@ pub enum SequenceLength {
     Largest,
     Alignment,
 }
+
+/// Type of matrix to be used for Normalized Similarity Score
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
+pub enum Matrix {
+    BLOSUM62,
+    PAM250,
+    GONNET,
+}
+
 
 /// A single pair of sequences.
 /// Sequence comparison is done here.
@@ -173,7 +183,7 @@ impl MultipleSequenceAlignment {
 
                 }
                                 
-                description = String::from(line_str.trim_start_matches('>'));
+                description = String::from(line_str.trim().trim_start_matches('>'));
                 identifier = match description.split_whitespace().next() {
                     Some(id) => String::from(id),
                     None => {
@@ -226,46 +236,73 @@ impl MultipleSequenceAlignment {
 
 }
 
-#[derive(Debug)]
-struct MSAError {
-    details: String
-}
+pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_def_filepath: &str, length_mode: SequenceLength, matrix: Matrix, threads: usize) -> Result<(), Box<dyn Error>> {
+    // Initialize rayon.
+    // This allows to control the number of threads to use.
+    rayon::ThreadPoolBuilder::new().num_threads(threads).build_global()?;
 
-impl MSAError {
-    fn new(msg: &str) -> MSAError {
-        MSAError{details: msg.to_string()}
+    let msa = MultipleSequenceAlignment::from_file(msa_filepath)?;
+    let seqpair_vec: Vec<SeqPair> = msa.get_seq_pairs();
+
+    if identity {
+        println!("Identity related stuff goes here");
     }
-}
 
-impl fmt::Display for MSAError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"{}",self.details)
+    if similarity {
+        println!("Similarity related stuff goes here");
     }
-}
 
-impl Error for MSAError {
-    fn description(&self) -> &str {
-        &self.details
+    if nss {
+        println!("Normalized similarity score related stuff goes here");
+
     }
+
+
+
+    Ok(())
+
 }
 
+// #[derive(Debug)]
+// struct MSAError {
+//     details: String
+// }
 
-#[cfg(test)]
-mod tests {
-//     use std::collections::HashSet;
-//    use super::*;
-
-//     #[test]
-//     fn seq_is_ok() {
-//         let seq = "ACDFRGSQWERTH";
-//         let std_aa_set: HashSet<char> = HashSet::from_iter(data::STD_AA_GAP.chars());
-//         assert!(msa::is_seq_ok(&seq, &std_aa_set));        
+// impl MSAError {
+//     fn new(msg: &str) -> MSAError {
+//         MSAError{details: msg.to_string()}
 //     }
+// }
 
-//     #[test]
-//     fn seq_is_not_ok() {
-//         let seq = "ZXCASQWERTGHBNMIKLOP";
-//         let std_aa_set: HashSet<char> = HashSet::from_iter(data::STD_AA_GAP.chars());
-//         assert!(!msa::is_seq_ok(&seq, &std_aa_set));        
+// impl fmt::Display for MSAError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f,"{}",self.details)
 //     }
-}
+// }
+
+// impl Error for MSAError {
+//     fn description(&self) -> &str {
+//         &self.details
+//     }
+// }
+
+
+// #[cfg(test)]
+// mod tests {
+// //     use std::collections::HashSet;
+// //    use super::*;
+
+// //     #[test]
+// //     fn seq_is_ok() {
+// //         let seq = "ACDFRGSQWERTH";
+// //         let std_aa_set: HashSet<char> = HashSet::from_iter(data::STD_AA_GAP.chars());
+// //         assert!(msa::is_seq_ok(&seq, &std_aa_set));        
+// //     }
+
+// //     #[test]
+// //     fn seq_is_not_ok() {
+// //         let seq = "ZXCASQWERTGHBNMIKLOP";
+// //         let std_aa_set: HashSet<char> = HashSet::from_iter(data::STD_AA_GAP.chars());
+// //         assert!(!msa::is_seq_ok(&seq, &std_aa_set));        
+// //     }
+// }
