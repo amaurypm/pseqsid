@@ -62,7 +62,7 @@ fn is_seq_ok(sequence: &str) -> bool {
 }
 
 /// Sequence length to be used
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
 pub enum SequenceLength {
     Smallest,
     Mean,
@@ -71,7 +71,7 @@ pub enum SequenceLength {
 }
 
 /// Type of matrix to be used for Normalized Similarity Score
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
 pub enum Matrix {
     BLOSUM62,
     PAM250,
@@ -170,6 +170,8 @@ impl MultipleSequenceAlignment {
 
         for line in reader.lines() {
             let line_str = line?;
+            // eprintln!("{}\tline_str = {}", "DEBUG".magenta().bold(), &line_str);
+            // eprintln!("{}\tline_str.trim() = {}", "DEBUG".magenta().bold(), &line_str.trim());
 
             if line_str.trim().starts_with('>') {
                 if !some_seq {
@@ -177,35 +179,44 @@ impl MultipleSequenceAlignment {
                 }
 
                 if open_seq {
-                    eprintln!("{} Ignoring line {}", "WARN".yellow().bold(), line_str.italic());
+                    eprintln!("{}\tIgnoring line {}", "WARN".yellow().bold(), line_str.italic());
                     continue;
                 } else {
-                    if data.len() == 0 {
-                        eprintln!("{} Sequence {} is empty. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
-                        continue;
+                    if data.len() > 0 {
+                        if !is_seq_ok(&data) {
+                            eprintln!("{}\tSequence {} contains non-standard amino acids. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
+                            data = String::from("");
+                        } else if identifier.len() == 0 {
+                            eprintln!("{}\tData {} has an empty identifier. Ignoring data", "WARN".yellow().bold(), data.italic());
+                            data = String::from("");
+                        } else {
+                            // eprintln!("{}\tidentifier = {}", "DEBUG".magenta().bold(), &identifier);
+                            // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
+                            // eprintln!("{}\tdata = {}", "DEBUG".magenta().bold(), &data);
+
+                            seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
+
+                            data = String::from("");
+                        }                       
+
                     }
 
-                    if !is_seq_ok(&data) {
-                        eprintln!("{} Sequence {} contains non-standard amino acids. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
-                        continue;
-                    }
-
-                    seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
+                    description = String::from(line_str.trim().trim_start_matches('>'));
+                    identifier = match description.split_whitespace().next() {
+                        Some(id) => String::from(id),
+                        None => {
+                            eprintln!("{}\tSequence with no identifier detected. Ignoring line", "WARN".yellow().bold());
+                            continue;
+                        },
+                    };
+                    open_seq = true;                   
 
                 }
                                 
-                description = String::from(line_str.trim().trim_start_matches('>'));
-                identifier = match description.split_whitespace().next() {
-                    Some(id) => String::from(id),
-                    None => {
-                        eprintln!("{} Sequence with no identifier detected. Ignoring line.", "WARN".yellow().bold());
-                        continue;
-                    },
-                };
-                open_seq = true;
+                
             } else {
                     if !some_seq {
-                        eprintln!("{} Ignoring line {}", "WARN".yellow().bold(), line_str.italic());
+                        eprintln!("{}\tIgnoring line {}", "WARN".yellow().bold(), line_str.italic());
                         continue;
                     } else {
                         data += &line_str.trim();
@@ -215,10 +226,17 @@ impl MultipleSequenceAlignment {
         }
 
         if data.len() == 0 {
-            eprintln!("{} Sequence {} is empty. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
+            eprintln!("{}\tSequence {} is empty. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
         } else if !is_seq_ok(&data) {
-            eprintln!("{} Sequence {} contains non-standard amino acids. Ignoring entry.", "WARN".yellow().bold(), identifier.italic());
+            eprintln!("{}\tSequence {} contains non-standard amino acids. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
+        } else if identifier.len() == 0 {
+            eprintln!("{}\tData {} has an empty identifier. Ignoring data", "WARN".yellow().bold(), data.italic());
+            data = String::from("");
         } else {
+            // eprintln!("{}\tidentifier = {}", "DEBUG".magenta().bold(), &identifier);
+            // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
+            // eprintln!("{}\tdata = {}", "DEBUG".magenta().bold(), &data);
+
             seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
         }
         
@@ -257,7 +275,7 @@ impl MultipleSequenceAlignment {
 
     pub fn write_matrix(&self, filepath: &str, identity_map: HashMap<(usize, usize), f64>) -> Result<(), Box<dyn Error>> {
         let mut output = File::create(filepath)?;
-        let mut line = String::from("\"names\"");
+        let mut line = String::from("\"names");
 
         let sequences = self.get_sequences();
 
@@ -266,6 +284,7 @@ impl MultipleSequenceAlignment {
             line += "\",\"";
             line += identifier;            
         }
+        line += "\"";
         write!(output, "{}\n", line)?;
 
         // Write the matrix, with rownames
@@ -326,7 +345,7 @@ fn output_path(msa_filepath: &str, mode: OutputMode) -> String {
     }
 }
 
-pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_def_filepath: &str, length_mode: SequenceLength, matrix: Matrix, threads: usize) -> Result<(), Box<dyn Error>> {
+pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, length_mode: SequenceLength, aa_grouping_filepath: &str, matrix: Matrix, threads: usize) -> Result<(), Box<dyn Error>> {
     // Initialize rayon.
     // This allows to control the number of threads to use.
     rayon::ThreadPoolBuilder::new().num_threads(threads).build_global()?;
