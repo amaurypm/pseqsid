@@ -1,15 +1,17 @@
 /// Multiple sequence alignment
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use colored::Colorize;
 use clap::ArgEnum;
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::fmt;
 mod data;
 use data::StdAAnGap;
 use rayon::prelude::*;
+use std::path::Path;
+use std::ffi::OsStr;
 
 struct FastaSeq {
     identifier: String,
@@ -76,6 +78,11 @@ pub enum Matrix {
     GONNET,
 }
 
+enum OutputMode {
+    Identity,
+    Similarity,
+    NSS,
+}
 
 /// A single pair of sequences.
 /// Sequence comparison is done here.
@@ -138,6 +145,10 @@ impl<'a> SeqPair<'a> {
                 }
             }            
         }
+    }
+
+    fn index(&self) -> (usize, usize) {
+        (self.first_index, self.second_index)
     }
     
 }
@@ -234,6 +245,71 @@ impl MultipleSequenceAlignment {
         self.sequences.len()
     }
 
+    fn get_sequences(&self) -> &Vec<FastaSeq> {
+        &self.sequences
+    }
+
+    pub fn write_identity_matrix(&self, filepath: &str, identity_map: HashMap<(usize, usize), f64>) -> Result<(), Box<dyn Error>> {
+        let mut output = File::create(filepath)?;
+        let mut line = String::from("\"names\"");
+
+        let sequences = self.get_sequences();
+
+        // Write header
+        for identifier in sequences.iter().map(|s| s.identifier()) {
+            line += "\",\"";
+            line += identifier;            
+        }
+        write!(output, "{}\n", line)?;
+
+        // Write the matrix, with rownames
+        for i in 0..sequences.len() {
+            line = "\"".to_string() + sequences[i].identifier() + "\"";
+
+            for j in 0..sequences.len() {
+                if i > j {
+                    let identity = match identity_map.get(&(i, j)) {
+                        Some(x) => x,
+                        None => {
+                            return Err(Box::new(MSAError::new("missing identity value for sequence pair")));
+                        },                    
+                    };
+                    line += &format!(",{:.2}", identity);
+
+                } else {
+                    line += ","
+                }
+            }
+            write!(output, "{}\n", line)?;
+        }
+
+        Ok(())
+
+    }
+
+}
+
+fn output_path(msa_filepath: &str, mode: OutputMode) -> String {
+    let output_filename = match Path::new(msa_filepath).file_name() {
+       Some(s) => s,
+       None => OsStr::new(""),
+    };
+
+    let output_filename = match Path::new(output_filename).file_stem() {
+        Some(s) => s,
+        None => OsStr::new(""),
+    };
+
+    let output_filename = match output_filename.to_str() {
+        Some(s) => s.to_string(),
+        None => String::from(""),
+    };    
+
+    match mode {
+        OutputMode::Identity => output_filename + "_identity.csv",
+        OutputMode::Similarity => output_filename + "_similarity.csv",
+        OutputMode::NSS => output_filename + "_nss.csv",
+    }
 }
 
 pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_def_filepath: &str, length_mode: SequenceLength, matrix: Matrix, threads: usize) -> Result<(), Box<dyn Error>> {
@@ -242,10 +318,22 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_
     rayon::ThreadPoolBuilder::new().num_threads(threads).build_global()?;
 
     let msa = MultipleSequenceAlignment::from_file(msa_filepath)?;
+    if msa.len() < 2 {
+        return Err(Box::new(MSAError::new("less than two sequences in MSA file")));
+    }
+
     let seqpair_vec: Vec<SeqPair> = msa.get_seq_pairs();
 
     if identity {
-        println!("Identity related stuff goes here");
+        let identity_vec: Vec<((usize, usize), f64)> = seqpair_vec.par_iter().map(|p| (p.index(), p.identity(length_mode))).collect();
+
+        let mut identity_map: HashMap<(usize, usize), f64> = HashMap::new();
+        for (index, identity) in identity_vec {
+            identity_map.entry(index).or_insert(identity);
+        }
+
+        let output_filepath = output_path(msa_filepath, OutputMode::Identity);
+        msa.write_identity_matrix(&output_filepath, identity_map)?;
     }
 
     if similarity {
@@ -257,34 +345,32 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_
 
     }
 
-
-
     Ok(())
 
 }
 
-// #[derive(Debug)]
-// struct MSAError {
-//     details: String
-// }
+#[derive(Debug)]
+struct MSAError {
+    details: String
+}
 
-// impl MSAError {
-//     fn new(msg: &str) -> MSAError {
-//         MSAError{details: msg.to_string()}
-//     }
-// }
+impl MSAError {
+    fn new(msg: &str) -> MSAError {
+        MSAError{details: msg.to_string()}
+    }
+}
 
-// impl fmt::Display for MSAError {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f,"{}",self.details)
-//     }
-// }
+impl fmt::Display for MSAError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"{}",self.details)
+    }
+}
 
-// impl Error for MSAError {
-//     fn description(&self) -> &str {
-//         &self.details
-//     }
-// }
+impl Error for MSAError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
 
 
 // #[cfg(test)]
