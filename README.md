@@ -27,7 +27,7 @@ OPTIONS:
 At least one option from `-i`, `-s`, and/or `-n` must be supplied for the program to do something.
 
 ## Notes
-*At this moment just the identity calculation is implemented*
+*At this moment just the identity calculation is implemented.*
 More information will be supplied when the implementation of all features progress.
 
 ## Installation

@@ -16,20 +16,20 @@ use error::MSAError;
 
 struct FastaSeq {
     identifier: String,
-    description: String,
+    //description: String, // Not interested in the description.
     sequence: Vec<char>,
 }
 
 impl FastaSeq {
     /// Creates a FastaSeq instance. 
     /// The parameters must be checked for errors before passing them.
-    pub fn new(identifier: String, description: String, data: String) -> FastaSeq {
+    pub fn new(identifier: String, data: String) -> FastaSeq {
         assert!(identifier.len() > 0);
         assert!(data.len() > 0);
 
         FastaSeq {
             identifier,
-            description,
+            //description,
             sequence: data.chars().collect(),
         }
     }
@@ -194,7 +194,7 @@ impl MultipleSequenceAlignment {
                             // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
                             // eprintln!("{}\tdata = {}", "DEBUG".magenta().bold(), &data);
 
-                            seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
+                            seq_vec.push(FastaSeq::new(identifier.clone(), data.clone()));
 
                             data = String::from("");
                         }                       
@@ -237,7 +237,7 @@ impl MultipleSequenceAlignment {
             // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
             // eprintln!("{}\tdata = {}", "DEBUG".magenta().bold(), &data);
 
-            seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
+            seq_vec.push(FastaSeq::new(identifier.clone(), data.clone()));
         }
         
         if same_len(&seq_vec) {
