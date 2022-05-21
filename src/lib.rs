@@ -222,9 +222,15 @@ impl MultipleSequenceAlignment {
             seq_vec.push(FastaSeq::new(identifier.clone(), description.clone(), data.clone()));
         }
         
-        Ok(MultipleSequenceAlignment {
-            sequences: seq_vec,
-        })
+        if same_len(&seq_vec) {
+            Ok(MultipleSequenceAlignment {
+                sequences: seq_vec,
+            })
+        } else {
+            Err(Box::new(MSAError::new("all entries in the MSA must have same length (including gaps)")))
+        }
+
+        
 
     }
 
@@ -249,7 +255,7 @@ impl MultipleSequenceAlignment {
         &self.sequences
     }
 
-    pub fn write_identity_matrix(&self, filepath: &str, identity_map: HashMap<(usize, usize), f64>) -> Result<(), Box<dyn Error>> {
+    pub fn write_matrix(&self, filepath: &str, identity_map: HashMap<(usize, usize), f64>) -> Result<(), Box<dyn Error>> {
         let mut output = File::create(filepath)?;
         let mut line = String::from("\"names\"");
 
@@ -289,6 +295,14 @@ impl MultipleSequenceAlignment {
 
 }
 
+/// Check if all FastaSeq instances in the vector have the same entry length.
+/// This count gaps too.
+fn same_len(seq_vec: &Vec<FastaSeq>) -> bool {
+    let length_set: HashSet<usize> = seq_vec.iter().map(|s| s.whole_len()).collect();
+    length_set.len() == 1
+}
+
+/// Create output file path
 fn output_path(msa_filepath: &str, mode: OutputMode) -> String {
     let output_filename = match Path::new(msa_filepath).file_name() {
        Some(s) => s,
@@ -333,7 +347,7 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_
         }
 
         let output_filepath = output_path(msa_filepath, OutputMode::Identity);
-        msa.write_identity_matrix(&output_filepath, identity_map)?;
+        msa.write_matrix(&output_filepath, identity_map)?;
     }
 
     if similarity {
