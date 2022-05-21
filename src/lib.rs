@@ -6,19 +6,19 @@ use clap::ArgEnum;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
-use std::fmt;
-mod data;
-use data::StdAAnGap;
 use rayon::prelude::*;
 use std::path::Path;
 use std::ffi::OsStr;
+mod data;
+use data::StdAAnGap;
+mod error;
+use error::MSAError;
 
 struct FastaSeq {
     identifier: String,
     description: String,
     sequence: Vec<char>,
 }
-
 
 impl FastaSeq {
     /// Creates a FastaSeq instance. 
@@ -348,30 +348,6 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, sim_
     Ok(())
 
 }
-
-#[derive(Debug)]
-struct MSAError {
-    details: String
-}
-
-impl MSAError {
-    fn new(msg: &str) -> MSAError {
-        MSAError{details: msg.to_string()}
-    }
-}
-
-impl fmt::Display for MSAError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"{}",self.details)
-    }
-}
-
-impl Error for MSAError {
-    fn description(&self) -> &str {
-        &self.details
-    }
-}
-
 
 // #[cfg(test)]
 // mod tests {
