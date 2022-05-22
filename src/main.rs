@@ -62,7 +62,16 @@ fn main() {
         process::exit(0);
     }
 
-    let mut aa_grouping_filepath = String::new();
+    let aa_grouping_filepath = match cli.grouping {
+        Some(s) => s.to_string(),
+        None => match pseqsid::write_default_aa_sim_group() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("{}\t{}", "ERROR".red().bold(), e);
+                process::exit(0);
+            },
+        }
+    };    
 
     if let Err(e) = pseqsid::run(&cli.msa, cli.identity, cli.similarity, cli.nss, cli.length, &aa_grouping_filepath, cli.matrix, cli.threads) {
         eprintln!("{}\t{}", "ERROR".red().bold(), e);
