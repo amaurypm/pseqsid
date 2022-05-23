@@ -10,7 +10,8 @@ use rayon::prelude::*;
 use std::path::Path;
 use std::ffi::OsStr;
 mod data;
-use data::StdAAnGap;
+use data::{StdAAnGap, PO, PE};
+pub use data::Matrix;
 mod error;
 use error::MSAError;
 
@@ -62,14 +63,6 @@ pub enum SequenceLength {
     Mean,
     Largest,
     Alignment,
-}
-
-/// Type of matrix to be used for Normalized Similarity Score
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
-pub enum Matrix {
-    BLOSUM62,
-    PAM250,
-    GONNET,
 }
 
 enum OutputMode {
