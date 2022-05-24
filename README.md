@@ -43,12 +43,12 @@ OPTIONS:
 $S = \frac{(\sum M_{ij} - oP_o -eP_e)(\sum M_{ii} + \sum M_{jj})}{2\sum M_{ii}\sum M_{jj}}$
 
 Where:
-* $M_{ij}$ are log-odds values for each pair of aligned amino acids *ij* obtained from substitution matrices. Which substitution matrix to use is defined by the `-m` option.
-* $M_{ii}$ and $M_{jj}$ are the log-odds values corresponding to conserving the given residue for the first and the second sequence in the pair, respectively.
-* $o$ is the number of gap openings in the sequence pair.
-* $P_o$ is the gap opening penalty, as defined by `-p` option.
-* $e$ is the total number of gaps in the sequence pair. Gap-only columns are ignored.
-* $P_e$ gap extension penalty, as defined by `-e` option. 
+$M_{ij}$ are log-odds values for each pair of aligned amino acids *ij* obtained from substitution matrices. Which substitution matrix to use is defined by the `-m` option.
+$M_{ii}$ and $M_{jj}$ are the log-odds values corresponding to conserving the given residue for the first and the second sequence in the pair, respectively.
+$o$ is the number of gap openings in the sequence pair.
+$P_o$ is the gap opening penalty, as defined by `-p` option.
+$e$ is the total number of gaps in the sequence pair. Gap-only columns are ignored.
+$P_e$ gap extension penalty, as defined by `-e` option. 
 
 **`-m`**&emsp;**`--matrix`**&emsp;substitution matrix to be used for normalized similarity score calculation. Values corresponding to ambiguous amino acid definitions (such as `B`, `Z`, `X`) are ignored and a new column and row is added for gaps `-` with value zero. All three matrices are public, and available from multiple sources, in case you want to inspect them.
 
