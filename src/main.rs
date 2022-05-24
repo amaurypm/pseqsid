@@ -71,7 +71,7 @@ fn main() {
                 process::exit(0);
             },
         }
-    };    
+    };  
 
     if let Err(e) = pseqsid::run(&cli.msa, cli.identity, cli.similarity, cli.nss, cli.length, &aa_grouping_filepath, cli.matrix, cli.threads) {
         eprintln!("{}\t{}", "ERROR".red().bold(), e);

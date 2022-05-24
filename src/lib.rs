@@ -10,7 +10,7 @@ use rayon::prelude::*;
 use std::path::Path;
 use std::ffi::OsStr;
 mod data;
-use data::{StdAAnGap, PO, PE};
+use data::{StdAAnGap, PO, PE, SubstitutionMatrix};
 pub use data::Matrix;
 mod error;
 use error::MSAError;
@@ -93,6 +93,7 @@ impl<'a> SeqPair<'a> {
         }
     }
 
+    /// Calculates identity between a given pair of sequences.
     pub fn identity(&self, length_mode: SequenceLength) -> f64 {
         let sequence_length = self.sequence_length(length_mode);
         assert!(self.first_sequence.whole_len() == self.second_sequence.whole_len());
@@ -110,6 +111,7 @@ impl<'a> SeqPair<'a> {
 
     }
 
+    /// Calculates similarity between a given pair of sequences.
     pub fn similarity(&self, length_mode: SequenceLength, aa_sim_groups: &HashMap<String, HashSet<char>>) -> f64 {
         let sequence_length = self.sequence_length(length_mode);
         assert!(self.first_sequence.whole_len() == self.second_sequence.whole_len());
@@ -119,7 +121,7 @@ impl<'a> SeqPair<'a> {
             aa_pair_set.insert(self.first_sequence.sequence()[i]);
             aa_pair_set.insert(self.second_sequence.sequence()[i]);
 
-            if self.first_sequence.sequence()[i] == self.second_sequence.sequence()[i] || aa_sim_groups.iter().any(|(k,v)| aa_pair_set.is_subset(&v)) {
+            if self.first_sequence.sequence()[i] == self.second_sequence.sequence()[i] || aa_sim_groups.iter().any(|(_k,v)| aa_pair_set.is_subset(&v)) {
                 if self.first_sequence.sequence()[i] != '-' {
                     similarity_count += 1;
                 } else if let SequenceLength::Alignment = length_mode  {
@@ -131,6 +133,71 @@ impl<'a> SeqPair<'a> {
 
     }
 
+    /// Calculates normalized similarity score between a given pair of sequences.
+    pub fn nss(&self, matrix: Matrix) -> Option<f64> {
+
+        let sub_mat = SubstitutionMatrix::new(matrix);
+        let mut gap_open_i = false;
+        let mut gap_open_j = false;
+        let mut sum_ij = 0.0;
+        let mut sum_ii = 0.0;
+        let mut sum_jj = 0.0;
+        let mut count_po = 0;
+        let mut count_pe = 0;
+
+        for i in 0..self.first_sequence.whole_len() {
+            if self.first_sequence.sequence()[i] == '-' && self.second_sequence.sequence()[i] == '-' {
+                continue;
+            } else {
+                let val_ij = match sub_mat.get(self.first_sequence.sequence()[i], self.second_sequence.sequence()[i]) {
+                    Some(x) => x,
+                    None => return None,
+                };
+
+                let val_ii = match sub_mat.get(self.first_sequence.sequence()[i], self.first_sequence.sequence()[i]) {
+                    Some(x) => x,
+                    None => return None,
+                };
+
+                let val_jj = match sub_mat.get(self.second_sequence.sequence()[i], self.second_sequence.sequence()[i]) {
+                    Some(x) => x,
+                    None => return None,
+                };
+
+                sum_ij += val_ij;
+                sum_ii += val_ii;
+                sum_jj += val_jj;
+               
+
+                if self.first_sequence.sequence()[i] == '-' {
+                    count_pe += 1;
+                    if !gap_open_i {
+                        gap_open_i = true;
+                        count_po += 1;
+                    } 
+                } else {
+                    gap_open_i = false;
+                }  
+                
+                if self.second_sequence.sequence()[i] == '-' {
+                    count_pe += 1;
+                    if !gap_open_j {
+                        gap_open_j = true;
+                        count_po += 1;
+                    } 
+                } else {
+                    gap_open_j = false;
+                }  
+
+            }
+        }
+        
+        Some((sum_ij - (count_po as f64)*PO - (count_pe as f64)*PE)*(sum_ii + sum_jj)/(2.0*sum_ii*sum_jj))
+        //Some((sum_ij - (count_po as f64)*PO - (count_pe as f64)*PE)/sum_ii)
+
+    }    
+
+    /// Returns the proper value of sequence length given a length mode.
     fn sequence_length(&self, length_mode: SequenceLength) -> f64 {
         match length_mode {
             SequenceLength::Alignment => {
@@ -238,8 +305,7 @@ impl MultipleSequenceAlignment {
         } else if !is_seq_ok(&data) {
             eprintln!("{}\tSequence {} contains non-standard amino acids. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
         } else if identifier.len() == 0 {
-            eprintln!("{}\tData {} has an empty identifier. Ignoring data", "WARN".yellow().bold(), data.italic());
-            data = String::from("");
+            eprintln!("{}\tData {} has an empty identifier. Ignoring data", "WARN".yellow().bold(), data.italic());            
         } else {
             // eprintln!("{}\tidentifier = {}", "DEBUG".magenta().bold(), &identifier);
             // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
@@ -411,7 +477,7 @@ fn process_aa_sim_group_file(filepath: &str) -> Result<HashMap<String, HashSet<c
         let mut line_str = line?;
 
         if line_str.contains("#") {
-            if let Some((s1, s2)) = line_str.split_once('#') {
+            if let Some((s1, _s2)) = line_str.split_once('#') {
                 line_str = s1.to_string();
             }
         }
@@ -438,7 +504,7 @@ fn process_aa_sim_group_file(filepath: &str) -> Result<HashMap<String, HashSet<c
                         return Err(Box::new(MSAError::new(&format!("group {} in file {} contains non standard amino acids", group_name.bold(), filepath.italic())))); 
                     }                    
 
-                    if aa_sim_groups.iter().map(|(k,v)| aa_set.intersection(&v).collect()).any(|s: HashSet<&char>| s.len() > 0) {
+                    if aa_sim_groups.iter().map(|(_k,v)| aa_set.intersection(&v).collect()).any(|s: HashSet<&char>| s.len() > 0) {
                         return Err(Box::new(MSAError::new(&format!("amino acids belong to more than one group in file {}", filepath.italic()))));
                     }
 
@@ -499,8 +565,22 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, leng
     }
 
     if nss {
-        println!("{}\tNormalized similarity score not yet implemented", "INFO".yellow().bold());
+        let nss_vec: Vec<((usize, usize), Option<f64>)> = seqpair_vec.par_iter().map(|p| (p.index(), p.nss(matrix))).collect();
 
+        if nss_vec.par_iter().any(|((_i, _j), o)| *o == None) {
+            eprintln!("{:?}", nss_vec);
+            return Err(Box::new(MSAError::new("Normalized similarity calculation failed for at least a pair of sequences. This shouldn't happen. Please notify the package maintainer.")));
+        }
+
+        let nss_vec: Vec<((usize, usize), f64)> = nss_vec.par_iter().map(|((i, j), o)| ((*i, *j), o.unwrap())).collect();
+        
+        let mut nss_map: HashMap<(usize, usize), f64> = HashMap::new();
+        for (index, nss) in nss_vec {
+            nss_map.entry(index).or_insert(nss);
+        }
+
+        let output_filepath = output_path(msa_filepath, OutputMode::NSS);
+        msa.write_matrix(&output_filepath, nss_map)?;
     }
 
     Ok(())
