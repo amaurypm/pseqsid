@@ -24,12 +24,6 @@ pub enum Matrix {
     GONNET,
 }
  
-/// Penalty for opening a gap
-pub const PO: f64 = 10.0;
-
-/// Penalty for extending a gap
-pub const PE: f64 = 0.5;
-
 /// Substitution matrix
 /// It will create a modified BLOSUM62, PAM250, or a GONNET
 /// depending on the parameters of the new method.

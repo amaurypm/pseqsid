@@ -10,7 +10,7 @@ use rayon::prelude::*;
 use std::path::Path;
 use std::ffi::OsStr;
 mod data;
-use data::{StdAAnGap, PO, PE, SubstitutionMatrix};
+use data::{StdAAnGap, SubstitutionMatrix};
 pub use data::Matrix;
 mod error;
 use error::MSAError;
@@ -134,7 +134,7 @@ impl<'a> SeqPair<'a> {
     }
 
     /// Calculates normalized similarity score between a given pair of sequences.
-    pub fn nss(&self, matrix: Matrix) -> Option<f64> {
+    pub fn nss(&self, matrix: Matrix, po: f64, pe:f64) -> Option<f64> {
 
         let sub_mat = SubstitutionMatrix::new(matrix);
         let mut gap_open_i = false;
@@ -192,7 +192,7 @@ impl<'a> SeqPair<'a> {
             }
         }
         
-        Some((sum_ij - (count_po as f64)*PO - (count_pe as f64)*PE)*(sum_ii + sum_jj)/(2.0*sum_ii*sum_jj))
+        Some((sum_ij - (count_po as f64)*po - (count_pe as f64)*pe)*(sum_ii + sum_jj)/(2.0*sum_ii*sum_jj))
         //Some((sum_ij - (count_po as f64)*PO - (count_pe as f64)*PE)/sum_ii)
 
     }    
@@ -526,7 +526,7 @@ fn process_aa_sim_group_file(filepath: &str) -> Result<HashMap<String, HashSet<c
 }
 
 /// Function to be called from main
-pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, length_mode: SequenceLength, aa_grouping_filepath: &str, matrix: Matrix, threads: usize) -> Result<(), Box<dyn Error>> {
+pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, length_mode: SequenceLength, aa_grouping_filepath: &str, matrix: Matrix, po: f64, pe:f64, threads: usize) -> Result<(), Box<dyn Error>> {
     // Initialize rayon.
     // This allows to control the number of threads to use.
     rayon::ThreadPoolBuilder::new().num_threads(threads).build_global()?;
@@ -565,7 +565,7 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, leng
     }
 
     if nss {
-        let nss_vec: Vec<((usize, usize), Option<f64>)> = seqpair_vec.par_iter().map(|p| (p.index(), p.nss(matrix))).collect();
+        let nss_vec: Vec<((usize, usize), Option<f64>)> = seqpair_vec.par_iter().map(|p| (p.index(), p.nss(matrix, po, pe))).collect();
 
         if nss_vec.par_iter().any(|((_i, _j), o)| *o == None) {
             eprintln!("{:?}", nss_vec);

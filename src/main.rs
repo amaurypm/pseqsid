@@ -35,6 +35,14 @@ struct Cli {
     #[clap(short, long, arg_enum, default_value_t = Matrix::BLOSUM62)]
     matrix: Matrix,
 
+    /// Gap opening penalty (Po)
+    #[clap(short, long, parse(try_from_str=p_in_range), default_value = "10.0")]
+    po: f64,
+
+    /// Gap extending penalty (Pe)
+    #[clap(short='e', long, parse(try_from_str=p_in_range), default_value = "0.5")]
+    pe: f64,
+
     /// Number of threads to use.
     /// 0 use all available threads
     #[clap(short, long, default_value_t = 0)]
@@ -73,7 +81,22 @@ fn main() {
         }
     };  
 
-    if let Err(e) = pseqsid::run(&cli.msa, cli.identity, cli.similarity, cli.nss, cli.length, &aa_grouping_filepath, cli.matrix, cli.threads) {
+    if let Err(e) = pseqsid::run(&cli.msa, cli.identity, cli.similarity, cli.nss, cli.length, &aa_grouping_filepath, cli.matrix, cli.po, cli.pe, cli.threads) {
         eprintln!("{}\t{}", "ERROR".red().bold(), e);
+    }
+}
+
+/// Process and validate gap penalty values.
+fn p_in_range(ps: &str) -> Result<f64, String> {
+    let p: f64 = ps
+        .parse()
+        .map_err(|_| format!("`{}` isn't a real number", ps))?;
+
+    if p >= 0.0 && p <= 100.0 {
+        Ok(p)
+    } else {
+        Err(format!(
+            "gap penalty not in range 0.0 - 100.0"
+        ))
     }
 }
