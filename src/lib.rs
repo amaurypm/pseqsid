@@ -538,18 +538,6 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, leng
 
     let seqpair_vec: Vec<SeqPair> = msa.get_seq_pairs();
 
-    if identity {
-        let identity_vec: Vec<((usize, usize), f64)> = seqpair_vec.par_iter().map(|p| (p.index(), p.identity(length_mode))).collect();
-
-        let mut identity_map: HashMap<(usize, usize), f64> = HashMap::new();
-        for (index, identity) in identity_vec {
-            identity_map.entry(index).or_insert(identity);
-        }
-
-        let output_filepath = output_path(msa_filepath, OutputMode::Identity);
-        msa.write_matrix(&output_filepath, identity_map)?;
-    }
-
     if similarity {
         let aa_sim_groups = process_aa_sim_group_file(aa_grouping_filepath)?;
 
@@ -562,6 +550,18 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, leng
 
         let output_filepath = output_path(msa_filepath, OutputMode::Similarity);
         msa.write_matrix(&output_filepath, similarity_map)?;
+    }
+
+    if identity {
+        let identity_vec: Vec<((usize, usize), f64)> = seqpair_vec.par_iter().map(|p| (p.index(), p.identity(length_mode))).collect();
+
+        let mut identity_map: HashMap<(usize, usize), f64> = HashMap::new();
+        for (index, identity) in identity_vec {
+            identity_map.entry(index).or_insert(identity);
+        }
+
+        let output_filepath = output_path(msa_filepath, OutputMode::Identity);
+        msa.write_matrix(&output_filepath, identity_map)?;
     }
 
     if nss {
