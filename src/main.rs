@@ -54,19 +54,19 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    // eprintln!("{}\tmsa= {}","DEBUG".magenta().bold(), cli.msa);
-    // eprintln!("{}\tidentity= {}","DEBUG".magenta().bold(), cli.identity);
-    // eprintln!("{}\tsimilarity= {}","DEBUG".magenta().bold(), cli.similarity);
-    // eprintln!("{}\tnss= {}","DEBUG".magenta().bold(), cli.nss);
-    // eprintln!("{}\tlength= {:?}","DEBUG".magenta().bold(), cli.length);
-    // eprintln!("{}\tgrouping= {:?}","DEBUG".magenta().bold(), cli.grouping);
-    // eprintln!("{}\tmatrix= {:?}","DEBUG".magenta().bold(), cli.matrix);
-    // eprintln!("{}\tthreads= {:?}","DEBUG".magenta().bold(), cli.threads);
+    // eprintln!("{} msa= {}","debug:".magenta().bold(), cli.msa);
+    // eprintln!("{} identity= {}","debug:".magenta().bold(), cli.identity);
+    // eprintln!("{} similarity= {}","debug:".magenta().bold(), cli.similarity);
+    // eprintln!("{} nss= {}","debug:".magenta().bold(), cli.nss);
+    // eprintln!("{} length= {:?}","debug:".magenta().bold(), cli.length);
+    // eprintln!("{} grouping= {:?}","debug:".magenta().bold(), cli.grouping);
+    // eprintln!("{} matrix= {:?}","debug:".magenta().bold(), cli.matrix);
+    // eprintln!("{} threads= {:?}","debug:".magenta().bold(), cli.threads);
 
     if !cli.identity && !cli.similarity && !cli.nss {
-        println!("{}\tNothing to do", "INFO".green().bold());
-        println!("{}\tPlease set -i, -s and/or -n options", "INFO".green().bold());
-        println!("{}\tSee --help for more information", "INFO".green().bold());
+        println!("{} Nothing to do", "info:".green().bold());
+        println!("{} Please set -i, -s and/or -n options", "info:".green().bold());
+        println!("{} See --help for more information", "info:".green().bold());
         process::exit(0);
     }
 
@@ -75,14 +75,14 @@ fn main() {
         None => match pseqsid::write_default_aa_sim_group() {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("{}\t{}", "ERROR".red().bold(), e);
+                eprintln!("{} {}", "error:".red().bold(), e);
                 process::exit(0);
             },
         }
     };  
 
     if let Err(e) = pseqsid::run(&cli.msa, cli.identity, cli.similarity, cli.nss, cli.length, &aa_grouping_filepath, cli.matrix, cli.po, cli.pe, cli.threads) {
-        eprintln!("{}\t{}", "ERROR".red().bold(), e);
+        eprintln!("{} {}", "error:".red().bold(), e);
     }
 }
 

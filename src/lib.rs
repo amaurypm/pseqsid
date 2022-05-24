@@ -245,8 +245,8 @@ impl MultipleSequenceAlignment {
 
         for line in reader.lines() {
             let line_str = line?;
-            // eprintln!("{}\tline_str = {}", "DEBUG".magenta().bold(), &line_str);
-            // eprintln!("{}\tline_str.trim() = {}", "DEBUG".magenta().bold(), &line_str.trim());
+            // eprintln!("{} line_str = {}", "DEBUG".magenta().bold(), &line_str);
+            // eprintln!("{} line_str.trim() = {}", "DEBUG".magenta().bold(), &line_str.trim());
 
             if line_str.trim().starts_with('>') {
                 if !some_seq {
@@ -254,20 +254,20 @@ impl MultipleSequenceAlignment {
                 }
 
                 if open_seq {
-                    eprintln!("{}\tIgnoring line {}", "WARN".yellow().bold(), line_str.italic());
+                    eprintln!("{} Ignoring line {}", "warning:".yellow().bold(), line_str.italic());
                     continue;
                 } else {
                     if data.len() > 0 {
                         if !is_seq_ok(&data) {
-                            eprintln!("{}\tSequence {} contains non-standard amino acids. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
+                            eprintln!("{} Sequence {} contains non-standard amino acids. Ignoring entry", "warning:".yellow().bold(), identifier.italic());
                             data = String::from("");
                         } else if identifier.len() == 0 {
-                            eprintln!("{}\tData {} has an empty identifier. Ignoring data", "WARN".yellow().bold(), data.italic());
+                            eprintln!("{} Data {} has an empty identifier. Ignoring data", "warning:".yellow().bold(), data.italic());
                             data = String::from("");
                         } else {
-                            // eprintln!("{}\tidentifier = {}", "DEBUG".magenta().bold(), &identifier);
-                            // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
-                            // eprintln!("{}\tdata = {}", "DEBUG".magenta().bold(), &data);
+                            // eprintln!("{} identifier = {}", "DEBUG".magenta().bold(), &identifier);
+                            // eprintln!("{} description = {}", "DEBUG".magenta().bold(), &description);
+                            // eprintln!("{} data = {}", "DEBUG".magenta().bold(), &data);
 
                             seq_vec.push(FastaSeq::new(identifier.clone(), data.clone()));
 
@@ -280,7 +280,7 @@ impl MultipleSequenceAlignment {
                     identifier = match description.split_whitespace().next() {
                         Some(id) => String::from(id),
                         None => {
-                            eprintln!("{}\tSequence with no identifier detected. Ignoring line", "WARN".yellow().bold());
+                            eprintln!("{} Sequence with no identifier detected. Ignoring line", "warning:".yellow().bold());
                             continue;
                         },
                     };
@@ -291,7 +291,7 @@ impl MultipleSequenceAlignment {
                 
             } else {
                     if !some_seq {
-                        eprintln!("{}\tIgnoring line {}", "WARN".yellow().bold(), line_str.italic());
+                        eprintln!("{} Ignoring line {}", "warning:".yellow().bold(), line_str.italic());
                         continue;
                     } else {
                         data += &line_str.trim();
@@ -301,15 +301,15 @@ impl MultipleSequenceAlignment {
         }
 
         if data.len() == 0 {
-            eprintln!("{}\tSequence {} is empty. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
+            eprintln!("{} Sequence {} is empty. Ignoring entry", "warning:".yellow().bold(), identifier.italic());
         } else if !is_seq_ok(&data) {
-            eprintln!("{}\tSequence {} contains non-standard amino acids. Ignoring entry", "WARN".yellow().bold(), identifier.italic());
+            eprintln!("{} Sequence {} contains non-standard amino acids. Ignoring entry", "warning:".yellow().bold(), identifier.italic());
         } else if identifier.len() == 0 {
-            eprintln!("{}\tData {} has an empty identifier. Ignoring data", "WARN".yellow().bold(), data.italic());            
+            eprintln!("{} Data {} has an empty identifier. Ignoring data", "warning:".yellow().bold(), data.italic());            
         } else {
-            // eprintln!("{}\tidentifier = {}", "DEBUG".magenta().bold(), &identifier);
-            // eprintln!("{}\tdescription = {}", "DEBUG".magenta().bold(), &description);
-            // eprintln!("{}\tdata = {}", "DEBUG".magenta().bold(), &data);
+            // eprintln!("{} identifier = {}", "DEBUG".magenta().bold(), &identifier);
+            // eprintln!("{} description = {}", "DEBUG".magenta().bold(), &description);
+            // eprintln!("{} data = {}", "DEBUG".magenta().bold(), &data);
 
             seq_vec.push(FastaSeq::new(identifier.clone(), data.clone()));
         }
@@ -367,13 +367,13 @@ impl MultipleSequenceAlignment {
 
             for j in 0..sequences.len() {
                 if i > j {
-                    let identity = match value_map.get(&(i, j)) {
+                    let value = match value_map.get(&(i, j)) {
                         Some(x) => x,
                         None => {
-                            return Err(Box::new(MSAError::new("missing identity value for sequence pair")));
+                            return Err(Box::new(MSAError::new("missing value for sequence pair.  This shouldn't happen. Please notify the package maintainer")));
                         },                    
                     };
-                    line += &format!(",{:.2}", identity);
+                    line += &format!(",{:.2}", value);
 
                 } else {
                     line += ","
