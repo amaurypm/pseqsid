@@ -478,14 +478,17 @@ fn process_aa_sim_group_file(filepath: &str) -> Result<HashMap<String, HashSet<c
 
         if line_str.contains("#") {
             if let Some((s1, _s2)) = line_str.split_once('#') {
-                line_str = s1.to_string();
+                line_str = s1.trim().to_string();
             }
         }
 
         if line_str.len() > 0 {
             match line_str.trim().split_once(':') {
                 Some((group_name, aa_str)) => {
-                    if group_name.trim().len() == 0 {
+                    let group_name = group_name.trim();
+                    let aa_str = aa_str.trim();
+
+                    if group_name.len() == 0 {
                         return Err(Box::new(MSAError::new(&format!("empty group name in file {}", filepath.italic()))));
                     }
 
