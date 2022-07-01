@@ -60,6 +60,13 @@ $P_e$ gap extension penalty, as defined by `-e` option.
 Identity, similarity and NSS matrices are saved as CSV files, which filenames are derived from `<MSA>`, appending a proper substring. As these are symmetric matrices only the lower half is saved. Diagonals are ignored as identity and similarity of each protein sequence with itself is 100%, and NSS is 1.
 
 ## Installation
+
+### Using [snap](https://snapcraft.io/):
+
+`snap install pseqsid`
+
+### Using [cargo](https://www.rust-lang.org/tools/install):
+
 `cargo install pseqsid`
 
 Or you can download and build the crate yourself.
