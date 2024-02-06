@@ -70,16 +70,20 @@ fn main() {
         process::exit(0);
     }
 
-    let aa_grouping_filepath = match cli.grouping {
-        Some(s) => s.to_string(),
-        None => match pseqsid::write_default_aa_sim_group() {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("{} {}", "error:".red().bold(), e);
-                process::exit(0);
-            },
-        }
-    };  
+    let mut aa_grouping_filepath = "".to_string();
+
+    if cli.similarity {
+        aa_grouping_filepath = match cli.grouping {
+            Some(s) => s.to_string(),
+            None => match pseqsid::write_default_aa_sim_group() {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("{} {}", "error:".red().bold(), e);
+                    process::exit(0);
+                },
+            }
+        };
+    }
 
     if let Err(e) = pseqsid::run(&cli.msa, cli.identity, cli.similarity, cli.nss, cli.length, &aa_grouping_filepath, cli.matrix, cli.po, cli.pe, cli.threads) {
         eprintln!("{} {}", "error:".red().bold(), e);
