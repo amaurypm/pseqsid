@@ -58,6 +58,7 @@ $P_e$ gap extension penalty, as defined by `-e` option.
 
 ## Output
 Identity, similarity and NSS matrices are saved as CSV files, which filenames are derived from `<MSA>`, appending a proper substring. As these are symmetric matrices only the lower half is saved. Diagonals are ignored as identity and similarity of each protein sequence with itself is 100%, and NSS is 1.
+All results are also saved in a pairwise tabular format (a TSV file named by the input FASTA file plus _table.tsv) to facilitate integration with potential downstream tasks.
 
 ## Installation
 `cargo install pseqsid`

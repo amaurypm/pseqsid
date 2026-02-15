@@ -69,6 +69,7 @@ enum OutputMode {
     Identity,
     Similarity,
     NSS,
+    Table,
 }
 
 /// A single pair of sequences.
@@ -326,7 +327,7 @@ impl MultipleSequenceAlignment {
 
     }
 
-    pub fn get_seq_pairs(&self) -> Vec<SeqPair> {
+    pub fn get_seq_pairs(&self) -> Vec<SeqPair<'_>> {
         // At least two sequences are required.
         // This most be enforced at creation time.
         assert!(self.sequences.len() > 1);
@@ -347,7 +348,7 @@ impl MultipleSequenceAlignment {
         &self.sequences
     }
 
-    pub fn write_matrix(&self, filepath: &str, value_map: HashMap<(usize, usize), f64>) -> Result<(), Box<dyn Error>> {
+    pub fn write_matrix(&self, filepath: &str, value_map: &HashMap<(usize, usize), f64>) -> Result<(), Box<dyn Error>> {
         let mut output = File::create(filepath)?;
         let mut line = String::from("\"names");
 
@@ -384,6 +385,58 @@ impl MultipleSequenceAlignment {
 
         Ok(())
 
+    }
+
+    /// Writes a TSV table containing pairwise values for Seq1, Seq2, Identity, Similarity, and NSS.
+    /// Only columns for provided maps (Some) will be written.
+    pub fn write_table(
+        &self, 
+        filepath: &str, 
+        identity_map: &HashMap<(usize, usize), f64>,
+        similarity_map: &HashMap<(usize, usize), f64>,
+        nss_map: &HashMap<(usize, usize), f64>
+    ) -> Result<(), Box<dyn Error>> {
+        let mut output = File::create(filepath)?;
+        
+        // 1. Construct Header
+        let mut header = String::from("seq1\tseq2");
+        if ! identity_map.is_empty() { header += "\tidentity"; }
+        if ! similarity_map.is_empty() { header += "\tsimilarity"; }
+        if ! nss_map.is_empty() { header += "\tnss"; }
+        writeln!(output, "{}", header)?;
+
+        // 2. Iterate through pairs (i > j)
+        // This matches the key generation logic: (i, j) where i is the first sequence index
+        for i in 0..self.sequences.len() {
+            for j in 0..i {
+                // Sanitize descriptions (replace tabs with spaces)
+                let id1 = self.sequences[i].identifier().replace('\t', " ");
+                let id2 = self.sequences[j].identifier().replace('\t', " ");
+                
+                let mut line = format!("{}\t{}", id1, id2);
+                let key = (i, j);
+
+                // Append Identity
+                if let Some(val) = identity_map.get(&key) {
+                    line += &format!("\t{:.2}", val);
+                }
+            
+                
+                // Append Similarity
+                if let Some(val) = similarity_map.get(&key) {
+                    line += &format!("\t{:.2}", val);
+                }                
+                
+                // Append NSS
+                if let Some(val) = nss_map.get(&key) {
+                    line += &format!("\t{:.2}", val);
+                }
+                
+                writeln!(output, "{}", line)?;
+            }
+        }
+
+        Ok(())
     }
 
 }
@@ -434,6 +487,7 @@ fn output_path(msa_filepath: &str, mode: OutputMode) -> String {
         OutputMode::Identity => output_filename + "_identity.csv",
         OutputMode::Similarity => output_filename + "_similarity.csv",
         OutputMode::NSS => output_filename + "_nss.csv",
+        OutputMode::Table => output_filename + "_table.tsv",
     }
 }
 
@@ -541,32 +595,36 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, leng
 
     let seqpair_vec: Vec<SeqPair> = msa.get_seq_pairs();
 
+
+    let mut similarity_map: HashMap<(usize, usize), f64> = HashMap::new();
     if similarity {
         let aa_sim_groups = process_aa_sim_group_file(aa_grouping_filepath)?;
 
         let similarity_vec: Vec<((usize, usize), f64)> = seqpair_vec.par_iter().map(|p| (p.index(), p.similarity(length_mode, &aa_sim_groups))).collect();
 
-        let mut similarity_map: HashMap<(usize, usize), f64> = HashMap::new();
+        // let mut similarity_map: HashMap<(usize, usize), f64> = HashMap::new();
         for (index, similarity) in similarity_vec {
             similarity_map.entry(index).or_insert(similarity);
         }
 
         let output_filepath = output_path(msa_filepath, OutputMode::Similarity);
-        msa.write_matrix(&output_filepath, similarity_map)?;
+        msa.write_matrix(&output_filepath, &similarity_map)?;
     }
 
+    let mut identity_map: HashMap<(usize, usize), f64> = HashMap::new();
     if identity {
         let identity_vec: Vec<((usize, usize), f64)> = seqpair_vec.par_iter().map(|p| (p.index(), p.identity(length_mode))).collect();
 
-        let mut identity_map: HashMap<(usize, usize), f64> = HashMap::new();
+        // let mut identity_map: HashMap<(usize, usize), f64> = HashMap::new();
         for (index, identity) in identity_vec {
             identity_map.entry(index).or_insert(identity);
         }
 
         let output_filepath = output_path(msa_filepath, OutputMode::Identity);
-        msa.write_matrix(&output_filepath, identity_map)?;
+        msa.write_matrix(&output_filepath, &identity_map)?;
     }
 
+    let mut nss_map: HashMap<(usize, usize), f64> = HashMap::new();
     if nss {
         let nss_vec: Vec<((usize, usize), Option<f64>)> = seqpair_vec.par_iter().map(|p| (p.index(), p.nss(matrix, po, pe))).collect();
 
@@ -577,13 +635,25 @@ pub fn run(msa_filepath: &str, identity: bool, similarity: bool, nss: bool, leng
 
         let nss_vec: Vec<((usize, usize), f64)> = nss_vec.par_iter().map(|((i, j), o)| ((*i, *j), o.unwrap())).collect();
         
-        let mut nss_map: HashMap<(usize, usize), f64> = HashMap::new();
+        // let mut nss_map: HashMap<(usize, usize), f64> = HashMap::new();
         for (index, nss) in nss_vec {
             nss_map.entry(index).or_insert(nss);
         }
 
         let output_filepath = output_path(msa_filepath, OutputMode::NSS);
-        msa.write_matrix(&output_filepath, nss_map)?;
+        msa.write_matrix(&output_filepath, &nss_map)?;
+    }
+
+    // --- Write Table ---
+    // Create the summary table if any calculation was performed
+    if identity || similarity || nss {
+        let table_filepath = output_path(msa_filepath, OutputMode::Table);
+        msa.write_table(
+            &table_filepath, 
+            &identity_map, 
+            &similarity_map, 
+            &nss_map
+        )?;
     }
 
     Ok(())
