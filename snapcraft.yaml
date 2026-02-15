@@ -1,5 +1,5 @@
 name: pseqsid
-version: '1.0.2'
+version: '1.1.0'
 summary: Protein sequence identity and similarity calculator 
 description: |
   pseqsid is a command line program for calculating protein sequence
@@ -10,7 +10,7 @@ description: |
 
 grade: stable
 confinement: strict
-base: core18
+base: core24
 
 parts:
   pseqsid:
