@@ -1,0 +1,26 @@
+name: pseqsid
+version: '1.1.0'
+summary: Protein sequence identity and similarity calculator 
+description: |
+  pseqsid is a command line program for calculating protein sequence
+  identity, similarity and normalized similarity score. It takes as input a 
+  protein multiple sequence alignment in FASTA format and generates CSV files
+  containing identity, similarity or NSS matrices.
+  This package is maintained by the upstream developer.
+
+grade: stable
+confinement: strict
+base: core24
+
+parts:
+  pseqsid:
+    plugin: rust
+    source: https://github.com/amaurypm/pseqsid.git
+
+apps:
+  pseqsid:
+    command: bin/pseqsid
+    plugs: 
+      - home
+      - removable-media
+
